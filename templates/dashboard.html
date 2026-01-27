@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Queue Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .stat-card.submitted .stat-value { color: #3b82f6; }
+        .stat-card.completed .stat-value { color: #10b981; }
+        .stat-card.failed .stat-value { color: #ef4444; }
+        .stat-card.running .stat-value { color: #f59e0b; }
+        
+        .tasks-section {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #334155;
+        }
+        
+        .section-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .refresh-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .refresh-btn:hover {
+            background: #2563eb;
+        }
+        
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .task-item {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 16px;
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-pending { background: #1e40af; color: #dbeafe; }
+        .status-running { background: #d97706; color: #fef3c7; }
+        .status-completed { background: #059669; color: #d1fae5; }
+        .status-failed { background: #dc2626; color: #fee2e2; }
+        .status-retrying { background: #7c3aed; color: #ede9fe; }
+        .status-waiting { background: #64748b; color: #e2e8f0; }
+        
+        .task-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .task-id {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #94a3b8;
+        }
+        
+        .task-name {
+            font-size: 16px;
+            font-weight: 500;
+            color: #fff;
+        }
+        
+        .task-meta {
+            font-size: 13px;
+            color: #64748b;
+        }
+        
+        .priority-badge {
+            background: #334155;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        
+        .auto-refresh {
+            font-size: 12px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Task Queue Dashboard</h1>
+            <p style="color: #64748b;">Real-time monitoring of distributed task execution</p>
+        </header>
+        
+        <div class="stats-grid">
+            <div class="stat-card submitted">
+                <div class="stat-label">Total Submitted</div>
+                <div class="stat-value" id="stat-submitted">0</div>
+            </div>
+            <div class="stat-card running">
+                <div class="stat-label">Currently Running</div>
+                <div class="stat-value" id="stat-running">0</div>
+            </div>
+            <div class="stat-card completed">
+                <div class="stat-label">Completed</div>
+                <div class="stat-value" id="stat-completed">0</div>
+            </div>
+            <div class="stat-card failed">
+                <div class="stat-label">Failed</div>
+                <div class="stat-value" id="stat-failed">0</div>
+            </div>
+        </div>
+        
+        <div class="tasks-section">
+            <div class="section-header">
+                <div>
+                    <span>All Tasks</span>
+                    <span class="auto-refresh">Auto-refreshing every 2s</span>
+                </div>
+                <button class="refresh-btn" onclick="loadData()">Refresh Now</button>
+            </div>
+            <div class="task-list" id="task-list">
+                <div class="empty-state">No tasks yet</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function loadData() {
+            fetch('/api/stats')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('stat-submitted').textContent = data.submitted || 0;
+                    document.getElementById('stat-running').textContent = data.running || 0;
+                    document.getElementById('stat-completed').textContent = data.completed || 0;
+                    document.getElementById('stat-failed').textContent = data.failed || 0;
+                });
+            
+            fetch('/api/tasks')
+                .then(r => r.json())
+                .then(tasks => {
+                    const taskList = document.getElementById('task-list');
+                    
+                    if (tasks.length === 0) {
+                        taskList.innerHTML = '<div class="empty-state">No tasks yet</div>';
+                        return;
+                    }
+                    
+                    taskList.innerHTML = tasks.map(task => {
+                        const dependsText = task.depends_on ? `Depends on: ${task.depends_on}` : '';
+                        
+                        return `
+                            <div class="task-item">
+                                <span class="status-badge status-${task.status}">${task.status}</span>
+                                <div class="task-info">
+                                    <div class="task-id">${task.task_id}</div>
+                                    <div class="task-name">${task.func_name}</div>
+                                    <div class="task-meta">Attempts: ${task.attempts}/${task.max_retries} ${dependsText}</div>
+                                </div>
+                                <span class="priority-badge">Priority: ${task.priority}</span>
+                            </div>
+                        `;
+                    }).join('');
+                });
+        }
+        
+        loadData();
+        setInterval(loadData, 2000);
+    </script>
+</body>
+</html>
