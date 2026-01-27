@@ -6,37 +6,22 @@ from typing import Callable, Any, Optional
 
 
 class TaskStatus(Enum):
-    """All possible states a task can be in"""
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
     RETRYING = "retrying"
+    WAITING = "waiting"
 
 
 @dataclass
 class Task:
-    """
-    Represents a single unit of work.
+    func: Callable
+    args: tuple = ()
+    kwargs: dict = None
+    priority: int = 0
+    max_retries: int = 3
     
-    Example:
-        def resize_image(path, width):
-            # ... resize logic
-            return "resized.jpg"
-        
-        task = Task(
-            func=resize_image,
-            args=("photo.jpg", 800),
-            priority=5
-        )
-    """
-    func: Callable              # The function to run
-    args: tuple = ()           # Arguments to pass
-    kwargs: dict = None        # Keyword arguments
-    priority: int = 0          # Higher = more important
-    max_retries: int = 3       # How many times to retry if it fails
-    
-    # Auto-assigned fields
     task_id: str = None
     status: TaskStatus = TaskStatus.PENDING
     created_at: float = None
@@ -45,24 +30,18 @@ class Task:
     error: str = None
     
     def __post_init__(self):
-        """Called automatically after __init__"""
         if self.task_id is None:
-            self.task_id = str(uuid.uuid4())[:8]  # Short ID
+            self.task_id = str(uuid.uuid4())[:8]
         if self.created_at is None:
             self.created_at = time.time()
         if self.kwargs is None:
             self.kwargs = {}
     
     def execute(self):
-        """
-        Actually run the task.
-        Returns: (success: bool, result: Any, error: str)
-        """
         self.status = TaskStatus.RUNNING
         self.attempts += 1
         
         try:
-            # Run the function
             result = self.func(*self.args, **self.kwargs)
             self.status = TaskStatus.COMPLETED
             self.result = result
@@ -72,7 +51,6 @@ class Task:
             error_msg = f"{type(e).__name__}: {str(e)}"
             self.error = error_msg
             
-            # Should we retry?
             if self.attempts < self.max_retries:
                 self.status = TaskStatus.RETRYING
             else:
