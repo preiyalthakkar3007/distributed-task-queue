@@ -1,151 +1,111 @@
-# Distributed Task Queue
+﻿# ⚙️ Distributed Task Queue
 
-A high-performance distributed task queue system with support for priority scheduling, automatic retries, task dependencies, and persistent storage.
+> A production-grade task queue system built from scratch — priority scheduling, automatic retries, dependency chains, and a live monitoring dashboard.
+
+[![Live Demo](https://img.shields.io/badge/🟢_LIVE_DEMO-distributed--task--queue.onrender.com-green?style=for-the-badge)](https://distributed-task-queue-5iv0.onrender.com)
+![Python](https://img.shields.io/badge/Python-3.x-blue?style=flat-square&logo=python)
+![Flask](https://img.shields.io/badge/Flask-3.x-black?style=flat-square&logo=flask)
+![SQLite](https://img.shields.io/badge/SQLite-persistent-blue?style=flat-square&logo=sqlite)
+
+---
+
+## What It Does
+
+Most apps need background jobs — sending emails, processing uploads, running reports. This system handles all of it with priority queuing, fault tolerance, and real-time visibility.
+
+**[Open the live dashboard →](https://distributed-task-queue-5iv0.onrender.com)** and watch tasks flow through the pipeline in real time.
+
+---
 
 ## Features
 
-- **Priority-based scheduling** - High-priority tasks execute first
-- **Automatic retry with exponential backoff** - Failed tasks retry automatically
-- **Task dependencies** - Chain tasks that depend on each other
-- **SQLite persistence** - Tasks survive system restarts
-- **Multi-process workers** - Parallel task execution
-- **Real-time web dashboard** - Monitor tasks through a browser interface
-- **Command-line interface** - Easy management and monitoring
+| Feature | Details |
+|---------|---------|
+| ⚡ **Priority Scheduling** | Higher priority tasks always execute first |
+| 🔄 **Auto Retry + Backoff** | Failed tasks retry automatically (configurable attempts) |
+| 🔗 **Task Dependencies** | Chain tasks that wait for others to complete |
+| 💾 **SQLite Persistence** | Tasks survive server restarts |
+| 👷 **Multi-process Workers** | Parallel execution across worker processes |
+| 📊 **Live Dashboard** | Real-time monitoring via Flask web UI |
+| 🖥️ **CLI Interface** | Submit and manage tasks from the terminal |
+
+---
 
 ## Architecture
+```
+Producer → Queue Manager → Worker Processes → Result Handler
+                ↓                                    ↓
+           SQLite DB ←──────────────────────── Status Updates
+                ↓
+          Flask Dashboard (real-time polling)
+```
 
-The system consists of four main components:
+---
 
-1. **Queue Manager** - Coordinates task submission and distribution
-2. **Workers** - Execute tasks in separate processes
-3. **Database** - Persists task state and results
-4. **Dashboard** - Web interface for monitoring
-
-## Installation
+## Quick Start
 ```bash
+git clone https://github.com/preiyalthakkar3007/distributed-task-queue.git
+cd distributed-task-queue
 pip install flask
 ```
 
-## Quick Start
-
-### Submit and process tasks
+### Submit tasks programmatically
 ```python
 from queue_manager import TaskQueueManager
-from worker import worker_process
-import multiprocessing as mp
 
-def my_task(x, y):
+def process_data(x, y):
     return x + y
 
 qm = TaskQueueManager()
-task_id = qm.submit_task(my_task, args=(5, 3), priority=10)
-
-stop_event = mp.Event()
-p = mp.Process(target=worker_process, args=(1, qm.task_queue, qm.result_queue, stop_event))
-p.start()
+qm.submit_task(process_data, args=(5, 3), priority=10)
 ```
 
-### Using the CLI
-
-Start the dashboard with workers:
-```bash
-python cli.py dashboard -n 3 -p 5000
-```
-
-View statistics:
-```bash
-python cli.py stats
-```
-
-List all tasks:
-```bash
-python cli.py list
-```
-
-Start workers only:
-```bash
-python cli.py workers -n 4
-```
-
-## Task Dependencies
-
-Create task pipelines where tasks wait for others to complete:
+### Create dependency chains
 ```python
-task1 = qm.submit_task_with_dependency(download_file, args=("data.csv",))
-task2 = qm.submit_task_with_dependency(process_file, depends_on=task1, args=("data.csv",))
-task3 = qm.submit_task_with_dependency(upload_result, depends_on=task2, args=("result.csv",))
+t1 = qm.submit_task_with_dependency(download_file, args=("data.csv",))
+t2 = qm.submit_task_with_dependency(process_file, depends_on=t1)
+t3 = qm.submit_task_with_dependency(upload_result, depends_on=t2)
 ```
 
-## Configuration
+### Run via CLI
+```bash
+python cli.py dashboard -n 3   # Start dashboard with 3 workers
+python cli.py stats            # View queue statistics
+python cli.py list             # List all tasks
+```
 
-### Queue Manager Options
+---
 
-- `db_path` - SQLite database file location (default: "tasks.db")
-- `recover` - Recover pending tasks on startup (default: True)
+## Retry Logic
 
-### Task Submission Options
+Failed tasks automatically retry with exponential backoff:
+```
+Attempt 1 → immediate
+Attempt 2 → 2s delay
+Attempt 3 → 4s delay
+... then marked as FAILED
+```
 
-- `priority` - Higher values execute first (default: 0)
-- `max_retries` - Number of retry attempts (default: 3)
-- `depends_on` - Task ID this task depends on (default: None)
+---
+
+## Tech Stack
+
+- **Language:** Python
+- **Queue:** multiprocessing.Queue (process-safe)
+- **Storage:** SQLite
+- **Dashboard:** Flask + vanilla JS (auto-refreshes every 2s)
+- **Deployment:** Render
+
+---
 
 ## Use Cases
 
-- **Data processing pipelines** - ETL workflows with dependencies
-- **Batch job processing** - Process large datasets in parallel
-- **Scheduled tasks** - Run periodic jobs with retry logic
-- **API request handling** - Distribute API calls across workers
-- **File processing** - Parallel image/video processing
+- ETL data pipelines with dependencies
+- Batch job processing
+- Distributed API request handling
+- Parallel file/image processing
+- Any background job workload
 
-## Technical Details
+---
 
-### Priority Queue
-
-Tasks are executed based on priority. Higher priority values are processed first. Within the same priority, tasks follow FIFO order.
-
-### Retry Logic
-
-Failed tasks automatically retry with exponential backoff:
-- Attempt 1: Immediate
-- Attempt 2: 2 seconds delay
-- Attempt 3: 4 seconds delay
-
-### Persistence
-
-All task metadata is stored in SQLite:
-- Task ID and function name
-- Arguments and priority
-- Status and attempts
-- Results and errors
-- Creation and update timestamps
-
-### Process Safety
-
-The system uses multiprocessing-safe queues and shared dictionaries to coordinate between processes on Windows and Unix systems.
-
-## Project Structure
-```
-distributed-task-queue/
-├── task.py              # Task data model
-├── queue_manager.py     # Queue coordination logic
-├── worker.py            # Worker process implementation
-├── database.py          # SQLite persistence layer
-├── dashboard.py         # Flask web dashboard
-├── cli.py               # Command-line interface
-├── templates/
-│   └── dashboard.html   # Dashboard UI
-└── README.md
-```
-
-## Future Enhancements
-
-- Task scheduling with cron-like syntax
-- Worker health monitoring and auto-restart
-- Task result caching
-- Dead letter queue for permanently failed tasks
-- Distributed workers across multiple machines
-- Authentication for dashboard access
-
-## License
-
-MIT
+*Built as an alternative to Celery for understanding distributed systems fundamentals.*
